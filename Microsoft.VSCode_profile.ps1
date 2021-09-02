@@ -1,0 +1,1 @@
+. "$((Get-Item $PROFILE).Directory)\Microsoft.PowerShell_Profile.ps1"
