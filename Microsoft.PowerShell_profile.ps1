@@ -27,7 +27,7 @@ function prompt {
                 $c++
                 if ($c -ge ($SplitPath[$i] -split "" | Where-Object { $_ -ne "" -and $_ -ne $null }).Count) { $c--; break; }
                 $FirstLetter = ($SplitPath[$i])[$c]
-            } while ($FirstLetter -notmatch "[a-zA-Z0-9äöüÄÖÜ]")
+            } while ([int][char]$FirstLetter -notin (65..90 + 97..122 + 228, 246, 252, 196, 214, 220))
             $PathPrompt += "\" + $(($SplitPath[$i])[0..$c] -join "")
         }
         $PathPrompt += "\"
@@ -43,7 +43,7 @@ function prompt {
 
     [System.Console]::Title = "$AdminString PowerShell $PSVersion"
 
-    Write-Host "$AdminString" -NoNewLine
+    Write-Host "$AdminString" -NoNewLine -ForeGroundColor Green
     Write-Host "PS" -NoNewLine -ForeGroundColor DarkBlue
     Write-Host "$PSVersion " -NoNewLine -ForeGroundColor Blue
     Write-Host "[$Time] " -NoNewLine -ForeGroundColor Red
