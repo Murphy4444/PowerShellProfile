@@ -7,7 +7,7 @@ function prompt {
     $MAXFULLPATH = 5
     $Path = (Get-Location).ProviderPath
     $IsAdmin = [Security.Principal.WindowsIdentity]::GetCurrent().Groups -contains 'S-1-5-32-544'
-    $AdminString = "" ; if ($IsAdmin) { $AdminString = "🔑 " } 
+    $AdminString = "" ; if ($IsAdmin) { $AdminString = "↑ " } 
     $Path = $Path.Replace("$HOME", "~")
     $SplitPath = $Path -split "\\" |  Where-Object { $_ -ne "" -and $_ -ne $null }
     if ($SplitPath.Count -gt $MAXFULLPATH) { 
