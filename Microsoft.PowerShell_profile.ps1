@@ -6,9 +6,24 @@ $PROFILEDIR = (Get-Item $PROFILE).Directory.FullName
 function prompt {
     $MAXFULLPATH = 5
     $Path = (Get-Location).ProviderPath
-    $IsAdmin = [Security.Principal.WindowsIdentity]::GetCurrent().Groups -contains 'S-1-5-32-544'
-    $AdminString = "" ; if ($IsAdmin) { $AdminString = "↑ " } 
+    # $IsAdmin = [Security.Principal.WindowsIdentity]::GetCurrent().Groups -contains 'S-1-5-32-544'
+    # $AdminString = "" ; if ($IsAdmin) { $AdminString = "↑ " } 
     $Path = $Path.Replace("$HOME", "~")
+    
+    $GitFolderTest = Test-GitFolder
+
+    $GitString = if ($GitFolderTest) {
+        $Branch = ((Get-Content "$GitFolderTest/HEAD") -split "\/")[-1]
+        $config = Get-Content "$GitFolderTest/config"
+
+        $RemoteIndex = [Array]::LastIndexOf($config, "[branch `"$Branch`"]") + 1
+        $Remote = $config[$RemoteIndex].Replace("remote =", "").Trim()
+        " [$Remote/$Branch]"
+    }
+    else {
+        ""
+    }
+    
     $SplitPath = $Path -split "\\" |  Where-Object { $_ -ne "" -and $_ -ne $null }
     if ($SplitPath.Count -gt $MAXFULLPATH) { 
         if ($Path -like "\\*") {
@@ -41,15 +56,30 @@ function prompt {
     $PSVersion = "$($Version.Major).$($Version.Minor)"
     $Time = Get-Date -UFormat "%H:%M:%S"
 
-    [System.Console]::Title = "$AdminString PowerShell $PSVersion"
+    # [System.Console]::Title = "$AdminString PowerShell $PSVersion"
+    [System.Console]::Title = "PowerShell $PSVersion | $PathPrompt$GitString"
 
-    Write-Host "$AdminString" -NoNewLine -ForeGroundColor Green
+    # Write-Host "$AdminString" -NoNewLine -ForeGroundColor Green
     Write-Host "PS" -NoNewLine -ForeGroundColor DarkBlue
     Write-Host "$PSVersion " -NoNewLine -ForeGroundColor Blue
     Write-Host "[$Time] " -NoNewLine -ForeGroundColor Red
-    Write-Host "$PathPrompt>" -NoNewLine -ForeGroundColor White
+    Write-Host "$PathPrompt" -NoNewLine -ForeGroundColor White
+    Write-Host "$GitString" -ForeGroundColor Green
+    Write-Host ">" -NoNewLine -ForeGroundColor White
     
     return " "
+}
+
+function Test-GitFolder {
+    $Path = (Get-Location).ProviderPath
+    $SplitPath = $Path -split "\\" |  Where-Object { $_ -ne "" -and $_ -ne $null }
+    $DotGitPath = ".git"
+    
+    for ($folder = $SplitPath.Count - 1; $folder -ge 0 ; $folder--) {  
+        if (Test-Path $DotGitPath) { return $DotGitPath }
+        $DotGitPath = "../$DotGitPath"
+    }
+    return $false
 }
 
 function pw {
