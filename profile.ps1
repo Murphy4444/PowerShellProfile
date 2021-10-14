@@ -143,8 +143,8 @@ function Compare-FilesInFolder {
     Compare-Object $FirstHashes $SecondHashes
 }
 
-function l { param($Path); Get-ChildItem $Path | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
-function ll { param($Path); Get-ChildItem -Force $Path | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
+function l { param($Path, $MoreParams = ""); Invoke-Expression "Get-ChildItem $Path $MoreParams" | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
+function ll { param($Path, $MoreParams = ""); Invoke-Expression "Get-ChildItem -Force $Path $MoreParams" | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
 
 function New-Password ($Length) {
     $CharArr = @()
