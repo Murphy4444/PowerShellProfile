@@ -1,14 +1,18 @@
 #region Variables
-$PROFILEDIR = (Get-Item $PROFILE).Directory.FullName
+$PROFILEDIR = ($PROFILE -split "\\" | Select-Object -SkipLast 1) -join "\"
+$PSPROFILE = "$PROFILEDIR\profile.ps1" ; $PSPROFILE | Out-Null
+$env:ReplacePathPrompt = "$HOME|~"
 #endregion
 
 #region Functions
 function prompt {
     $MAXFULLPATH = 5
     $Path = (Get-Location).ProviderPath
-    # $IsAdmin = [Security.Principal.WindowsIdentity]::GetCurrent().Groups -contains 'S-1-5-32-544'
-    # $AdminString = "" ; if ($IsAdmin) { $AdminString = "↑ " } 
-    $Path = $Path.Replace("$HOME", "~")
+
+    ForEach ($KVP in ($env:ReplacePathPrompt -split ",")) {
+        $Key, $Value = $KVP -split "\|"
+        $Path = $Path.Replace("$Key", "$Value")
+    }
     
     $GitFolderTest = Test-GitFolder
 
@@ -164,7 +168,7 @@ Set-Alias -Name "gd" Get-Date
 Set-Alias -Name "ex" explorer.exe
 
 #endregion
-$CompSpecPath = "$((Get-Item $PROFILE).Directory)\ComputerSpecific.ps1"
+$CompSpecPath = "$PROFILEDIR\ComputerSpecific.ps1"
 if (Test-Path $CompSpecPath) {
     . $CompSpecPath
 }
