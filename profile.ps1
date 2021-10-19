@@ -11,7 +11,7 @@ function prompt {
 
     ForEach ($KVP in ($env:ReplacePathPrompt -split ",")) {
         $Key, $Value = $KVP -split "\|"
-        $Path = $Path.Replace("$Key", "$Value")
+        $Path = $Path -ireplace [regex]::Escape("$Key"), "$Value"
     }
     
     $GitFolderTest = Test-GitFolder
