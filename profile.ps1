@@ -22,6 +22,7 @@ function prompt {
 
         $RemoteIndex = [Array]::LastIndexOf($config, "[branch `"$Branch`"]") + 1
         $Remote = $config[$RemoteIndex].Replace("remote =", "").Trim()
+        if ($config -notcontains "[branch `"$Branch`"]") { $Remote = "-" }
         " [$Remote/$Branch]"
     }
     else {
