@@ -147,6 +147,10 @@ function Compare-FilesInFolder {
 function l { param($Path, $MoreParams = ""); Invoke-Expression "Get-ChildItem $Path $MoreParams" | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
 function ll { param($Path, $MoreParams = ""); Invoke-Expression "Get-ChildItem -Force $Path $MoreParams" | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
 
+function sudo {
+    Start-Process @args -Verb Runas
+}
+
 function New-Password ($Length) {
     $CharArr = @()
     $MajLet = @()
