@@ -175,8 +175,8 @@ function Compare-FilesInFolder {
     Compare-Object $FirstHashes $SecondHashes
 }
 
-function l { param($Path, $MoreParams = ""); Invoke-Expression "Get-ChildItem $Path $MoreParams" | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
-function ll { param($Path, $MoreParams = ""); Invoke-Expression "Get-ChildItem -Force $Path $MoreParams" | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
+function l { Get-ChildItem @args | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
+function ll { Get-ChildItem @args -Force | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
 
 function sudo {
     Start-Process @args -Verb Runas
