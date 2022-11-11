@@ -17,18 +17,15 @@ function prompt {
     $GitFolderTest = Test-GitFolder
 
     $GitString = if ($GitFolderTest) {
-        $Branch = ((Get-Content "$GitFolderTest/HEAD") -split "\/")[-1]
-        $config = Get-Content "$GitFolderTest/config"
-
-        $RemoteIndex = [Array]::LastIndexOf($config, "[branch `"$Branch`"]") + 1
-        $Remote = $config[$RemoteIndex].Replace("remote =", "").Trim()
-        if ($config -notcontains "[branch `"$Branch`"]") { $Remote = "-" }
-        " [$Remote/$Branch]"
+        $GitInformation = Get-GitRepoInformation
+        $Remote = $GitInformation.Remote
+        if ($null -eq $Remote) { $Remote = "-" }
+        " [$Remote/$($GitInformation.Branch)]"
     }
     else {
         ""
     }
-    
+
     $SplitPath = $Path -split "\\" |  Where-Object { $_ -ne "" -and $_ -ne $null }
     if ($SplitPath.Count -gt $MAXFULLPATH) { 
         if ($Path -like "\\*") {
@@ -69,7 +66,11 @@ function prompt {
     Write-Host "$PSVersion " -NoNewLine -ForeGroundColor Blue
     Write-Host "[$Time] " -NoNewLine -ForeGroundColor Red
     Write-Host "$PathPrompt" -NoNewLine -ForeGroundColor White
-    Write-Host "$GitString" -ForeGroundColor Green
+    if($GitInformation.Status -eq "Red"){
+        Write-Host "$GitString" -ForeGroundColor Red
+    } else {
+        Write-Host "$GitString" -ForeGroundColor Green
+    }
     Write-Host ">" -NoNewLine -ForeGroundColor White
     
     return " "
@@ -85,6 +86,36 @@ function Test-GitFolder {
         $DotGitPath = "../$DotGitPath"
     }
     return $false
+}
+
+function Get-GitRepoInformation {
+    $GitDirRelPath = Test-GitFolder
+    if (!$GitDirRelPath) {
+        return $false
+    }
+    $GitDirAbsPath = $GitDirRelPath | Resolve-Path
+    $Branch = ((Get-Content "$GitDirRelPath/HEAD") -split "\/")[-1]
+    $config = Get-Content "$GitDirRelPath/config"
+
+    $RemoteIndex = [Array]::LastIndexOf($config, "[branch `"$Branch`"]") + 1
+    $Remote = $config[$RemoteIndex].Replace("remote =", "").Trim()
+    $URLIndex = [Array]::LastIndexOf($config, "[remote `"$Remote`"]") + 1
+    $URL = $config[$URLIndex].Replace("url =", "").Trim()
+    $RepoName = ($URL -split "\/")[-1] -replace "\.git"
+    if ($config -notcontains "[branch `"$Branch`"]") { $Remote = $null }
+
+    $GitStatus = iex "git status"
+
+    $Status = if ($GitStatus -like "*Changes not staged for commit*" -or $GitStatus -contains "*Untracked files:*") { "Red" } else { "Green" }
+
+    return New-Object -TypeName psobject -Property @{
+        Branch    = $Branch
+        Remote    = $Remote
+        URL       = $URL
+        Name      = $RepoName
+        Directory = $GitDirAbsPath
+        Status    = $Status
+    }
 }
 
 function pw {
@@ -165,7 +196,17 @@ function New-Password ($Length) {
     }
 
 }
+
+function Get-WiFiPassword {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$SSID
+    )
+    netsh wlan show profile $SSID key=clear
+}
+
 #endregion
+
 
 #region Aliases
 Set-Alias -Name "nts" New-TimeSpan
