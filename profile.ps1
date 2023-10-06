@@ -1,5 +1,5 @@
 #region Variables
-$PROFILEDIR = ($PROFILE -split "\\" | Select-Object -SkipLast 1) -join "\"
+$PROFILEDIR = Split-Path $PROFILE -Parent
 $PSPROFILE = "$PROFILEDIR\profile.ps1" ; $PSPROFILE | Out-Null
 $env:ReplacePathPrompt = "$HOME|~"
 #endregion
@@ -66,9 +66,10 @@ function prompt {
     Write-Host "$PSVersion " -NoNewLine -ForeGroundColor Blue
     Write-Host "[$Time] " -NoNewLine -ForeGroundColor Red
     Write-Host "$PathPrompt" -NoNewLine -ForeGroundColor White
-    if($GitInformation.Status -eq "Red"){
+    if ($GitInformation.Status -eq "Red") {
         Write-Host "$GitString" -ForeGroundColor Red
-    } else {
+    }
+    else {
         Write-Host "$GitString" -ForeGroundColor Green
     }
     Write-Host ">" -NoNewLine -ForeGroundColor White
@@ -104,7 +105,7 @@ function Get-GitRepoInformation {
     $RepoName = ($URL -split "\/")[-1] -replace "\.git"
     if ($config -notcontains "[branch `"$Branch`"]") { $Remote = $null }
 
-    $GitStatus = iex "git status"
+    $GitStatus = Invoke-Expression "git status"
 
     $Status = if ($GitStatus -like "*Changes not staged for commit*" -or $GitStatus -contains "*Untracked files:*") { "Red" } else { "Green" }
 
@@ -124,10 +125,24 @@ function pw {
         [switch]$r
     )
     if ($r) {
-        Start-Process powershell -Verb Runas 
+        Start-Process powershell -Verb Runas -ArgumentList  "-NoLogo"
     }
     else { 
         Start-Process powershell 
+    }
+}
+
+function pw7 {
+    param (
+        [Parameter(Mandatory = $false)]
+        [switch]$r
+    )
+    if ($r) {
+        Start-Process pwsh -Verb Runas -ArgumentList  "-NoLogo"
+
+    }
+    else { 
+        Start-Process pwsh 
     }
 }
 
@@ -182,24 +197,10 @@ function sudo {
     Start-Process @args -Verb Runas
 }
 
-function New-Password ($Length) {
-    $CharArr = @()
-    $MajLet = @()
-    $MinLet = @()
-    65..90 | ForEach-Object { $MajLet += [char]$_ }
-    97..122 | ForEach-Object { $MinLet += [char]$_ }
-    $SpecChars = ".", ",", ";", "'", "\", "/", ".", ",", ";", "'", "\", "/"
-    $CharArr += @(@(0..9), @($MajLet), @($MinLet), @($SpecChars))
-    
-    for ($i = 0; $i -lt $length; $i++) {
-        Write-Host (Get-Random (Get-Random $CharArr)) -NoNewline
-    }
-
-}
 
 function Get-WiFiPassword {
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$SSID
     )
     netsh wlan show profile $SSID key=clear
@@ -217,4 +218,14 @@ Set-Alias -Name "ex" explorer.exe
 $CompSpecPath = "$PROFILEDIR\ComputerSpecific.ps1"
 if (Test-Path $CompSpecPath) {
     . $CompSpecPath
+}
+
+# Load Version-Specific functions
+# This looks a little malicious and prone to lead to bad things
+$PSv7ScriptsFolder = "$PROFILEDIR\Scripts\PSv7\"
+if ($PSVersionTable.PSVersion.Major -ge 7 -and (Test-Path $PSv7ScriptsFolder)) { 
+    $Allv7ScriptFiles = Get-ChildItem "$PSv7ScriptsFolder\*.ps1"
+    ForEach ($ScriptFile in $Allv7ScriptFiles) {
+        . $ScriptFile.FullName
+    }
 }
