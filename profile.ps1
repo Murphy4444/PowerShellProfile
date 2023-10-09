@@ -2,6 +2,11 @@
 $PROFILEDIR = Split-Path $PROFILE -Parent
 $PSPROFILE = "$PROFILEDIR\profile.ps1" ; $PSPROFILE | Out-Null
 $env:ReplacePathPrompt = "$HOME|~"
+$env:ReplacePathPrompt += ",HKEY_LOCAL_MACHINE|HKLM:"
+$env:ReplacePathPrompt += ",HKEY_CLASSES_ROOT|HKCR:"
+$env:ReplacePathPrompt += ",HKEY_CURRENT_USER|HKCU:"
+$env:ReplacePathPrompt += ",HKEY_USERS|HKUS:"
+$env:ReplacePathPrompt += ",HKEY_CURRENT_CONFIG|HKCC:"
 #endregion
 
 #region Functions
@@ -52,6 +57,9 @@ function prompt {
     }
     else {
         $PathPrompt = $Path
+    }
+    if ($PathPrompt[-1] -eq ":") {
+        $PathPrompt = "$PathPrompt\"
     }
 
     $Version = $PSVersionTable.PSVersion
