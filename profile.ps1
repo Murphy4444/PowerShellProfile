@@ -74,13 +74,10 @@ function prompt {
     Write-Host "$PSVersion " -NoNewLine -ForeGroundColor Blue
     Write-Host "[$Time] " -NoNewLine -ForeGroundColor Red
     Write-Host "$PathPrompt" -NoNewLine -ForeGroundColor White
-    if ($GitInformation.Status -eq "Red") {
-        Write-Host "$GitString" -ForeGroundColor Red
+    if ($GitString) {
+        Write-Host -NoNewline "$GitString" -ForegroundColor ($GitInformation.Status)
     }
-    else {
-        Write-Host "$GitString" -ForeGroundColor Green
-    }
-    Write-Host ">" -NoNewLine -ForeGroundColor White
+    Write-Host "`n>" -NoNewLine -ForeGroundColor White
     
     return " "
 }
