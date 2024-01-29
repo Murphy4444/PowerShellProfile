@@ -11,6 +11,8 @@ $env:ReplacePathPrompt += ",HKEY_CURRENT_CONFIG|HKCC:"
 
 #region Functions
 function prompt {
+    $LastCommandExecutionState = $? ? "✓" : "𐄂"
+
     $MAXFULLPATH = 5
     $Path = (Get-Location).ProviderPath
 
@@ -77,6 +79,30 @@ function prompt {
     if ($GitString) {
         Write-Host -NoNewline "$GitString" -ForegroundColor ($GitInformation.Status)
     }
+
+    $TerminalWindowWidth = $Host.UI.RawUI.WindowSize.Width
+    $LastCommand = Get-History | Select-Object -Last 1
+    $LastCommandExecutionTime = $LastCommand.Duration
+    if ($LastCommandExecutionTime.Hours) {
+        $FormattedExecutiontime = "$($LastCommandExecutionTime.Hours)h $($LastCommandExecutionTime.Hours)m"
+    }
+    elseif ($LastCommandExecutionTime.Minutes) {
+        $FormattedExecutiontime = "$($LastCommandExecutionTime.Minutes)m $($LastCommandExecutionTime.Seconds)s"
+    }
+    else {
+        $FormattedExecutiontime = "$([System.Math]::Round($LastCommandExecutionTime.TotalSeconds,3))s"
+    }
+    $LastCommandString = $LastCommandExecutionTime.Ticks ? "⏱  $FormattedExecutiontime [ $LastCommandExecutionState ]" : ""
+
+
+    $RightAlignedPosition = New-Object System.Management.Automation.Host.Coordinates ($TerminalWindowWidth - $LastCommandString.Length), $Host.UI.RawUI.CursorPosition.Y
+
+    $Host.UI.RawUI.CursorPosition = $RightAlignedPosition
+
+    # $CurrentCursorPosition = $Host.UI.RawUI.CursorPosition
+
+    Write-Host -NoNewline $LastCommandString
+
     Write-Host "`n>" -NoNewLine -ForeGroundColor White
     
     return " "
