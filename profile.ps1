@@ -214,11 +214,73 @@ function Get-WiFiPassword {
     netsh wlan show profile $SSID key=clear
 }
 
+function New-TimeSpanSum {
+    param (
+        [Parameter(Mandatory = $true)]
+        [array]$Times
+    )
+    $TotalTime = New-TimeSpan
+    for ($i = 0; $i -lt $Times.count; $i += 2) {
+        $TotalTime += New-TimeSpan $Times[$i] $Times[$i + 1]
+    
+    }
+    return $TotalTime
+}
+
+function New-Password {
+    param (
+        [Parameter(Mandatory = $false)]
+        $Length = 16,
+        [Parameter(Mandatory = $false)]
+        [ValidateSet("Numbers", "Special", "AllLetters", "MinorLetters", "MajorLetters")]
+        $Bias,
+        [Parameter(Mandatory = $false)]
+        [switch]$CopyToClipboard,
+        [Parameter(Mandatory = $false)]
+        [switch]$DoNotShow
+    )
+    # $NumBias = $SpecCharBias = $AllLetBias = $MinLetBias = $MajLetBias = 1
+
+    $FinishedPW = ""
+
+    $CharArr = @()
+    $MajLet = @()
+    $MinLet = @()
+    65..90 | ForEach-Object { $MajLet += [char]$_ }
+    97..122 | ForEach-Object { $MinLet += [char]$_ }
+    $SpecChars = @(".", ",", ";", "'", "\", "/")
+    1..$NumBias | ForEach-Object { $CharArr += @(0..9) }
+    1..$MajLetBias | ForEach-Object { $CharArr += @($MajLet) }
+    1..$MinLetBias | ForEach-Object { $CharArr += @($MinLet) }
+    1..$SpecCharBias | ForEach-Object { $CharArr += @($SpecChars) }
+
+    for ($i = 0; $i -lt $Length; $i++) {
+        $FinishedPW += Get-Random -InputObject (Get-Random -InputObject $CharArr)
+    }
+   
+    if ($CopyToClipboard) {
+        Set-Clipboard -Value $FinishedPW
+    }
+
+    if (!$DoNotShow) {
+        Write-Output $FinishedPW
+    }
+}
+
+#endregion
+
+#region PSDrives for Registry
+New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT -ErrorAction SilentlyContinue | Out-Null
+New-PSDrive -Name HKUS -PSProvider Registry -Root HKEY_USERS -ErrorAction SilentlyContinue | Out-Null
+New-PSDrive -Name HKCC -PSProvider Registry -Root HKEY_CURRENT_CONFIG -ErrorAction SilentlyContinue | Out-Null
+
 #endregion
 
 
 #region Aliases
 Set-Alias -Name "nts" New-TimeSpan
+Set-Alias -Name "ntsm" New-TimeSpanSum
+Set-Alias -Name "ntss" New-TimeSpanSum
 Set-Alias -Name "gd" Get-Date
 Set-Alias -Name "ex" explorer.exe
 
@@ -228,12 +290,3 @@ if (Test-Path $CompSpecPath) {
     . $CompSpecPath
 }
 
-# Load Version-Specific functions
-# This looks a little malicious and prone to lead to bad things
-$PSv7ScriptsFolder = "$PROFILEDIR\Scripts\PSv7\"
-if ($PSVersionTable.PSVersion.Major -ge 7 -and (Test-Path $PSv7ScriptsFolder)) { 
-    $Allv7ScriptFiles = Get-ChildItem "$PSv7ScriptsFolder\*.ps1"
-    ForEach ($ScriptFile in $Allv7ScriptFiles) {
-        . $ScriptFile.FullName
-    }
-}
