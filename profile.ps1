@@ -11,7 +11,7 @@ $env:ReplacePathPrompt += ",HKEY_CURRENT_CONFIG|HKCC:"
 
 #region Functions
 function prompt {
-    $LastCommandExecutionState = $? ? "✓" : "𐄂"
+    $LastCommandExecutionState = $? ? "✔ " : "❌"
 
     $MAXFULLPATH = 5
     $Path = (Get-Location).ProviderPath
@@ -92,7 +92,7 @@ function prompt {
     else {
         $FormattedExecutiontime = "$([System.Math]::Round($LastCommandExecutionTime.TotalSeconds,3))s"
     }
-    $LastCommandString = $LastCommandExecutionTime.Ticks ? "⏱  $FormattedExecutiontime [ $LastCommandExecutionState ]" : ""
+    $LastCommandString = $LastCommandExecutionTime.Ticks ? "⏱  $FormattedExecutiontime [ $LastCommandExecutionState ] " : ""
 
 
     $RightAlignedPosition = New-Object System.Management.Automation.Host.Coordinates ($TerminalWindowWidth - $LastCommandString.Length), $Host.UI.RawUI.CursorPosition.Y
