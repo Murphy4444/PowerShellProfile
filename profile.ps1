@@ -290,6 +290,20 @@ function New-Password {
     }
 }
 
+function Get-Type {
+param (
+	[Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+	$Object,
+	[Parameter(Mandatory=$false)]
+	[switch]$FullName
+)
+
+	$Type = $Object.Gettype()
+
+	if ($FullName) {return $Type.FullName}
+	return $Type
+}
+
 #endregion
 
 #region PSDrives for Registry
@@ -306,6 +320,7 @@ Set-Alias -Name "ntsm" New-TimeSpanSum
 Set-Alias -Name "ntss" New-TimeSpanSum
 Set-Alias -Name "gd" Get-Date
 Set-Alias -Name "ex" explorer.exe
+Set-Alias -Name "gt" Get-Type
 
 #endregion
 $CompSpecPath = "$PROFILEDIR\ComputerSpecific.ps1"
