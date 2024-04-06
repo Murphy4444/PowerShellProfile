@@ -225,7 +225,11 @@ function l { Get-ChildItem @args | Sort-Object -Descending PSISContainer, @{Expr
 function ll { Get-ChildItem @args -Force | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
 
 function sudo {
-    Start-Process @args -Verb Runas
+    try {
+		Start-Process @args -Verb Runas
+	}
+	catch {}
+
 }
 
 
