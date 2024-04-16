@@ -232,6 +232,18 @@ function sudo {
 
 }
 
+function Start-VIM {
+	try {
+		nvim @args
+	} 
+	catch {
+		try {
+			vim @args
+		}
+		catch {}
+	}
+}
+
 
 function Get-WiFiPassword {
     param(
@@ -325,6 +337,10 @@ Set-Alias -Name "ntss" New-TimeSpanSum
 Set-Alias -Name "gd" Get-Date
 Set-Alias -Name "ex" explorer.exe
 Set-Alias -Name "gt" Get-Type
+Set-Alias -Name "n" Start-VIM
+Set-Alias -Name "v" Start-VIM
+
+
 
 #endregion
 $CompSpecPath = "$PROFILEDIR\ComputerSpecific.ps1"
