@@ -1,6 +1,6 @@
 #region Variables
-$PROFILEDIR = Split-Path $PROFILE -Parent
-$PSPROFILE = "$PROFILEDIR\profile.ps1" ; $PSPROFILE | Out-Null
+$PROFILEDIR = Split-Path $PROFILE.CurrentUserAllHosts -Parent
+$PSPROFILE = $PROFILE.CurrentUserAllHosts ; $PSPROFILE | Out-Null
 $env:ReplacePathPrompt = "$HOME|~"
 $env:ReplacePathPrompt += ",HKEY_LOCAL_MACHINE|HKLM:"
 $env:ReplacePathPrompt += ",HKEY_CLASSES_ROOT|HKCR:"
@@ -11,7 +11,7 @@ $env:ReplacePathPrompt += ",HKEY_CURRENT_CONFIG|HKCC:"
 
 #region Functions
 function prompt {
-    $LastCommandExecutionState = $? ? "✔ " : "❌"
+    $LastCommandExecutionState = if ($?) { "Green" } else { "Red" }
 
     $MAXFULLPATH = 5
     $Path = (Get-Location).ProviderPath
@@ -19,18 +19,6 @@ function prompt {
     ForEach ($KVP in ($env:ReplacePathPrompt -split ",")) {
         $Key, $Value = $KVP -split "\|"
         $Path = $Path -ireplace [regex]::Escape("$Key"), "$Value"
-    }
-    
-    $GitFolderTest = Test-GitFolder
-
-    $GitString = if ($GitFolderTest) {
-        $GitInformation = Get-GitRepoInformation
-        $Remote = $GitInformation.Remote
-        if ($null -eq $Remote) { $Remote = "-" }
-        " [$Remote/$($GitInformation.Branch)]"
-    }
-    else {
-        ""
     }
 
     $SplitPath = $Path -split "\\" |  Where-Object { $_ -ne "" -and $_ -ne $null }
@@ -76,13 +64,16 @@ function prompt {
     Write-Host "$PSVersion " -NoNewLine -ForeGroundColor Blue
     Write-Host "[$Time] " -NoNewLine -ForeGroundColor Red
     Write-Host "$PathPrompt" -NoNewLine -ForeGroundColor White
-    if ($GitString) {
-        Write-Host -NoNewline "$GitString" -ForegroundColor ($GitInformation.Status)
-    }
 
     $TerminalWindowWidth = $Host.UI.RawUI.WindowSize.Width
     $LastCommand = Get-History | Select-Object -Last 1
-    $LastCommandExecutionTime = $LastCommand.Duration
+    if ($LastCommand.Duration) {
+        $LastCommandExecutionTime = $LastCommand.Duration
+    }
+    else {
+        $LastCommandExecutionTime = $LastCommand.EndExecutionTime - $LastCommand.StartExecutionTime
+    }
+
     if ($LastCommandExecutionTime.Hours) {
         $FormattedExecutiontime = "$($LastCommandExecutionTime.Hours)h $($LastCommandExecutionTime.Hours)m"
     }
@@ -92,62 +83,26 @@ function prompt {
     else {
         $FormattedExecutiontime = "$([System.Math]::Round($LastCommandExecutionTime.TotalSeconds,3))s"
     }
-    $LastCommandString = $LastCommandExecutionTime.Ticks ? "⏱  $FormattedExecutiontime [ $LastCommandExecutionState ] " : ""
 
-
+    $LastCommandString = if ($LastCommandExecutionTime.Ticks) { " $FormattedExecutiontime [ `$? ] " } else { "" }
+    
     $RightAlignedPosition = New-Object System.Management.Automation.Host.Coordinates ($TerminalWindowWidth - $LastCommandString.Length), $Host.UI.RawUI.CursorPosition.Y
 
     $Host.UI.RawUI.CursorPosition = $RightAlignedPosition
 
     # $CurrentCursorPosition = $Host.UI.RawUI.CursorPosition
 
-    Write-Host -NoNewline $LastCommandString
+    if ($LastCommandExecutionTime.Ticks) { 
+        Write-Host " $FormattedExecutiontime" -NoNewline
+        Write-Host " [ " -NoNewline
+        Write-Host "`$?" -NoNewline -ForegroundColor:$LastCommandExecutionState
+        Write-Host " ]" -NoNewline
+    }
+ 
 
     Write-Host "`n>" -NoNewLine -ForeGroundColor White
     
     return " "
-}
-
-function Test-GitFolder {
-    $Path = (Get-Location).ProviderPath
-    $SplitPath = $Path -split "\\" |  Where-Object { $_ -ne "" -and $_ -ne $null }
-    $DotGitPath = ".git"
-    
-    for ($folder = $SplitPath.Count - 1; $folder -ge 0 ; $folder--) {  
-        if (Test-Path $DotGitPath) { return $DotGitPath }
-        $DotGitPath = "../$DotGitPath"
-    }
-    return $false
-}
-
-function Get-GitRepoInformation {
-    $GitDirRelPath = Test-GitFolder
-    if (!$GitDirRelPath) {
-        return $false
-    }
-    $GitDirAbsPath = $GitDirRelPath | Resolve-Path
-    $Branch = ((Get-Content "$GitDirRelPath/HEAD") -split "\/")[-1]
-    $config = Get-Content "$GitDirRelPath/config"
-
-    $RemoteIndex = [Array]::LastIndexOf($config, "[branch `"$Branch`"]") + 1
-    $Remote = $config[$RemoteIndex].Replace("remote =", "").Trim()
-    $URLIndex = [Array]::LastIndexOf($config, "[remote `"$Remote`"]") + 1
-    $URL = $config[$URLIndex].Replace("url =", "").Trim()
-    $RepoName = ($URL -split "\/")[-1] -replace "\.git"
-    if ($config -notcontains "[branch `"$Branch`"]") { $Remote = $null }
-
-    $GitStatus = Invoke-Expression "git status"
-
-    $Status = if ($GitStatus -like "*Changes not staged for commit*" -or $GitStatus -contains "*Untracked files:*") { "Red" } else { "Green" }
-
-    return New-Object -TypeName psobject -Property @{
-        Branch    = $Branch
-        Remote    = $Remote
-        URL       = $URL
-        Name      = $RepoName
-        Directory = $GitDirAbsPath
-        Status    = $Status
-    }
 }
 
 function pw {
@@ -192,7 +147,7 @@ function cdl {
     Get-ChildItem -Force
 }
 
-
+<#
 function init {
     param (
         $param, [switch]$f
@@ -205,6 +160,7 @@ function init {
         shutdown -r -t 0 $ff
     }
 }
+#>
 
 function touch ([Parameter(Mandatory = $true)]$FileNameOrPath) {
     New-Item -ItemType File $FileNameOrPath
@@ -225,33 +181,10 @@ function l { Get-ChildItem @args | Sort-Object -Descending PSISContainer, @{Expr
 function ll { Get-ChildItem @args -Force | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
 
 function sudo {
-    try {
-		Start-Process @args -Verb Runas
-	}
-	catch {}
-
-}
-
-function Start-VIM {
-	try {
-		nvim @args
-	} 
-	catch {
-		try {
-			vim @args
-		}
-		catch {}
-	}
+    Start-Process @args -Verb Runas
 }
 
 
-function Get-WiFiPassword {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$SSID
-    )
-    netsh wlan show profile $SSID key=clear
-}
 
 function New-TimeSpanSum {
     param (
@@ -266,58 +199,35 @@ function New-TimeSpanSum {
     return $TotalTime
 }
 
-function New-Password {
+function Get-Type {
     param (
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        $Object,
         [Parameter(Mandatory = $false)]
-        $Length = 16,
-        [Parameter(Mandatory = $false)]
-        [ValidateSet("Numbers", "Special", "AllLetters", "MinorLetters", "MajorLetters")]
-        $Bias,
-        [Parameter(Mandatory = $false)]
-        [switch]$CopyToClipboard,
-        [Parameter(Mandatory = $false)]
-        [switch]$DoNotShow
+        [switch]$FullName
     )
-    # $NumBias = $SpecCharBias = $AllLetBias = $MinLetBias = $MajLetBias = 1
 
-    $FinishedPW = ""
+    $Type = $Object.Gettype()
 
-    $CharArr = @()
-    $MajLet = @()
-    $MinLet = @()
-    65..90 | ForEach-Object { $MajLet += [char]$_ }
-    97..122 | ForEach-Object { $MinLet += [char]$_ }
-    $SpecChars = @(".", ",", ";", "'", "\", "/")
-    1..$NumBias | ForEach-Object { $CharArr += @(0..9) }
-    1..$MajLetBias | ForEach-Object { $CharArr += @($MajLet) }
-    1..$MinLetBias | ForEach-Object { $CharArr += @($MinLet) }
-    1..$SpecCharBias | ForEach-Object { $CharArr += @($SpecChars) }
-
-    for ($i = 0; $i -lt $Length; $i++) {
-        $FinishedPW += Get-Random -InputObject (Get-Random -InputObject $CharArr)
-    }
-   
-    if ($CopyToClipboard) {
-        Set-Clipboard -Value $FinishedPW
-    }
-
-    if (!$DoNotShow) {
-        Write-Output $FinishedPW
-    }
+    if ($FullName) { return $Type.FullName }
+    return $Type
 }
 
-function Get-Type {
-param (
-	[Parameter(Mandatory=$true, ValueFromPipeline=$true)]
-	$Object,
-	[Parameter(Mandatory=$false)]
-	[switch]$FullName
-)
+function Resolve-IPAddress {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true,
+            ValueFromPipeline = $true)]
+        [ipaddress]$IPAddress
+    )
 
-	$Type = $Object.Gettype()
+    return [System.Net.Dns]::GetHostByAddress($IPAddress)
+}
 
-	if ($FullName) {return $Type.FullName}
-	return $Type
+function Restart-Explorer {
+    Get-Process explorer | Stop-Process -Force
+    Start-Sleep -Seconds 2
+    Start-Process explorer.exe
 }
 
 #endregion
@@ -329,7 +239,6 @@ New-PSDrive -Name HKCC -PSProvider Registry -Root HKEY_CURRENT_CONFIG -ErrorActi
 
 #endregion
 
-
 #region Aliases
 Set-Alias -Name "nts" New-TimeSpan
 Set-Alias -Name "ntsm" New-TimeSpanSum
@@ -337,14 +246,8 @@ Set-Alias -Name "ntss" New-TimeSpanSum
 Set-Alias -Name "gd" Get-Date
 Set-Alias -Name "ex" explorer.exe
 Set-Alias -Name "gt" Get-Type
-Set-Alias -Name "n" Start-VIM
-Set-Alias -Name "v" Start-VIM
+Set-Alias -Name "fixex" Restart-Explorer
+Set-Alias -Name "^" Select-Object
+Set-Alias -Name "rip" Resolve-IPAddress
 Set-Alias -Name "m" Measure-Object
-
-
 #endregion
-$CompSpecPath = "$PROFILEDIR\ComputerSpecific.ps1"
-if (Test-Path $CompSpecPath) {
-    . $CompSpecPath
-}
-
