@@ -18,9 +18,9 @@ function prompt {
 
     $GitString = if ($GitFolderTest) {
         $GitInformation = Get-GitRepoInformation
-        $Remote = $GitInformation.Remote
+        $Name = ($GitInformation.Name).ToLower()
         if ($null -eq $Remote) { $Remote = "-" }
-        " [$Remote/$($GitInformation.Branch)]"
+        " [$Name/$($GitInformation.Branch)]"
     }
     else {
         ""
@@ -66,9 +66,10 @@ function prompt {
     Write-Host "$PSVersion " -NoNewLine -ForeGroundColor Blue
     Write-Host "[$Time] " -NoNewLine -ForeGroundColor Red
     Write-Host "$PathPrompt" -NoNewLine -ForeGroundColor White
-    if($GitInformation.Status -eq "Red"){
+    if ($GitInformation.Status -eq "Red") {
         Write-Host "$GitString" -ForeGroundColor Red
-    } else {
+    }
+    else {
         Write-Host "$GitString" -ForeGroundColor Green
     }
     Write-Host ">" -NoNewLine -ForeGroundColor White
@@ -104,7 +105,7 @@ function Get-GitRepoInformation {
     $RepoName = ($URL -split "\/")[-1] -replace "\.git"
     if ($config -notcontains "[branch `"$Branch`"]") { $Remote = $null }
 
-    $GitStatus = iex "git status"
+    $GitStatus = Invoke-Expression "git status"
 
     $Status = if ($GitStatus -like "*Changes not staged for commit*" -or $GitStatus -contains "*Untracked files:*") { "Red" } else { "Green" }
 
@@ -199,7 +200,7 @@ function New-Password ($Length) {
 
 function Get-WiFiPassword {
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$SSID
     )
     netsh wlan show profile $SSID key=clear
