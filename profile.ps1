@@ -1,11 +1,19 @@
 #region Variables
-$PROFILEDIR = ($PROFILE -split "\\" | Select-Object -SkipLast 1) -join "\"
+$PROFILEDIR = Split-Path $PROFILE -Parent
 $PSPROFILE = "$PROFILEDIR\profile.ps1" ; $PSPROFILE | Out-Null
 $env:ReplacePathPrompt = "$HOME|~"
+$env:ReplacePathPrompt += ",HKEY_LOCAL_MACHINE|HKLM:"
+$env:ReplacePathPrompt += ",HKEY_CLASSES_ROOT|HKCR:"
+$env:ReplacePathPrompt += ",HKEY_CURRENT_USER|HKCU:"
+$env:ReplacePathPrompt += ",HKEY_USERS|HKUS:"
+$env:ReplacePathPrompt += ",HKEY_CURRENT_CONFIG|HKCC:"
 #endregion
 
 #region Functions
 function prompt {
+    $LastCommandExecutionBool = $?
+    $LastCommandExecutionState = $LastCommandExecutionBool ? "✔ " : "❌"
+
     $MAXFULLPATH = 5
     $Path = (Get-Location).ProviderPath
 
@@ -53,6 +61,9 @@ function prompt {
     else {
         $PathPrompt = $Path
     }
+    if ($PathPrompt[-1] -eq ":") {
+        $PathPrompt = "$PathPrompt\"
+    }
 
     $Version = $PSVersionTable.PSVersion
     $PSVersion = "$($Version.Major).$($Version.Minor)"
@@ -66,13 +77,34 @@ function prompt {
     Write-Host "$PSVersion " -NoNewLine -ForeGroundColor Blue
     Write-Host "[$Time] " -NoNewLine -ForeGroundColor Red
     Write-Host "$PathPrompt" -NoNewLine -ForeGroundColor White
-    if ($GitInformation.Status -eq "Red") {
-        Write-Host "$GitString" -ForeGroundColor Red
+    if ($GitString) {
+        Write-Host -NoNewline "$GitString" -ForegroundColor ($GitInformation.Status)
+    }
+
+    $TerminalWindowWidth = $Host.UI.RawUI.WindowSize.Width
+    $LastCommand = Get-History | Select-Object -Last 1
+    $LastCommandExecutionTime = $LastCommand.Duration
+    if ($LastCommandExecutionTime.TotalHours) {
+        $FormattedExecutiontime = "$($LastCommandExecutionTime.TotalHours)h $($LastCommandExecutionTime.Minutes)m"
+    }
+    elseif ($LastCommandExecutionTime.TotalMinutes) {
+        $FormattedExecutiontime = "$($LastCommandExecutionTime.TotalMinutes)m $($LastCommandExecutionTime.Seconds)s"
     }
     else {
-        Write-Host "$GitString" -ForeGroundColor Green
+        $FormattedExecutiontime = "$([System.Math]::Round($LastCommandExecutionTime.TotalSeconds,3))s"
     }
-    Write-Host ">" -NoNewLine -ForeGroundColor White
+    $LastCommandString = $LastCommandExecutionTime.Ticks ? "⏱  $FormattedExecutiontime [ $LastCommandExecutionState ] " : ""
+
+
+    $RightAlignedPosition = New-Object System.Management.Automation.Host.Coordinates ($TerminalWindowWidth - $LastCommandString.Length - ([int]!$LastCommandExecutionBool)), $Host.UI.RawUI.CursorPosition.Y
+
+    $Host.UI.RawUI.CursorPosition = $RightAlignedPosition
+
+    # $CurrentCursorPosition = $Host.UI.RawUI.CursorPosition
+
+    Write-Host -NoNewline $LastCommandString
+
+    Write-Host "`n>" -NoNewLine -ForeGroundColor White
     
     return " "
 }
@@ -100,11 +132,13 @@ function Get-GitRepoInformation {
 
     $RemoteIndex = [Array]::LastIndexOf($config, "[branch `"$Branch`"]") + 1
     $Remote = $config[$RemoteIndex].Replace("remote =", "").Trim()
+    if ($Remote -like "*vscode-merge-base*") { $Remote = $Remote.Replace("vscode-merge-base =", "").Replace("/", "\").Trim() }
     $URLIndex = [Array]::LastIndexOf($config, "[remote `"$Remote`"]") + 1
     $URL = $config[$URLIndex].Replace("url =", "").Trim()
     $RepoName = ($URL -split "\/")[-1] -replace "\.git"
     if ($config -notcontains "[branch `"$Branch`"]") { $Remote = $null }
 
+    $GitStatus = Invoke-Expression "git status"
     $GitStatus = Invoke-Expression "git status"
 
     $Status = if ($GitStatus -like "*Changes not staged for commit*" -or $GitStatus -contains "*Untracked files:*") { "Red" } else { "Green" }
@@ -125,10 +159,24 @@ function pw {
         [switch]$r
     )
     if ($r) {
-        Start-Process powershell -Verb Runas 
+        Start-Process powershell -Verb Runas -ArgumentList  "-NoLogo"
     }
     else { 
         Start-Process powershell 
+    }
+}
+
+function pw7 {
+    param (
+        [Parameter(Mandatory = $false)]
+        [switch]$r
+    )
+    if ($r) {
+        Start-Process pwsh -Verb Runas -ArgumentList  "-NoLogo"
+
+    }
+    else { 
+        Start-Process pwsh 
     }
 }
 
@@ -168,35 +216,44 @@ function touch ([Parameter(Mandatory = $true)]$FileNameOrPath) {
 function Compare-FilesInFolder { 
     param(
         $FirstFolder, 
-        $SecondFolder
+        $SecondFolder,
+        [switch]$QuickCompare
     ) 
-    $FirstHashes = Get-ChildItem -File -Recurse $FirstFolder | ForEach-Object { (Get-FileHash $_).Hash }
-    $SecondHashes = Get-ChildItem -File -Recurse $SecondFolder | ForEach-Object { (Get-FileHash $_).Hash }
-
-    Compare-Object $FirstHashes $SecondHashes
+    $FirstFiles = Get-ChildItem -File -Recurse $FirstFolder 
+    $SecondFiles = Get-ChildItem -File -Recurse $SecondFolder
+    if (!$QuickCompare) {
+        $FirstHashes = $FirstFiles | ForEach-Object { (Get-FileHash $_).Hash }
+        $SecondHashes = $SecondFiles | ForEach-Object { (Get-FileHash $_).Hash }
+        return (Compare-Object $FirstHashes $SecondHashes)
+    }
+    else {
+        return (Compare-Object $FirstFiles.FullName $SecondFiles.FullName)
+    }
 }
 
 function l { Get-ChildItem @args | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
 function ll { Get-ChildItem @args -Force | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
 
 function sudo {
-    Start-Process @args -Verb Runas
-}
-
-function New-Password ($Length) {
-    $CharArr = @()
-    $MajLet = @()
-    $MinLet = @()
-    65..90 | ForEach-Object { $MajLet += [char]$_ }
-    97..122 | ForEach-Object { $MinLet += [char]$_ }
-    $SpecChars = ".", ",", ";", "'", "\", "/", ".", ",", ";", "'", "\", "/"
-    $CharArr += @(@(0..9), @($MajLet), @($MinLet), @($SpecChars))
-    
-    for ($i = 0; $i -lt $length; $i++) {
-        Write-Host (Get-Random (Get-Random $CharArr)) -NoNewline
+    try {
+        Start-Process @args -Verb Runas
     }
+    catch {}
 
 }
+
+function Start-VIM {
+    try {
+        nvim @args
+    } 
+    catch {
+        try {
+            vim @args
+        }
+        catch {}
+    }
+}
+
 
 function Get-WiFiPassword {
     param(
@@ -206,16 +263,98 @@ function Get-WiFiPassword {
     netsh wlan show profile $SSID key=clear
 }
 
+function New-TimeSpanSum {
+    param (
+        [Parameter(Mandatory = $true)]
+        [array]$Times
+    )
+    $TotalTime = New-TimeSpan
+    for ($i = 0; $i -lt $Times.count; $i += 2) {
+        $TotalTime += New-TimeSpan $Times[$i] $Times[$i + 1]
+    
+    }
+    return $TotalTime
+}
+
+function New-Password {
+    param (
+        [Parameter(Mandatory = $false)]
+        $Length = 16,
+        [Parameter(Mandatory = $false)]
+        [ValidateSet("Numbers", "Special", "AllLetters", "MinorLetters", "MajorLetters")]
+        $Bias,
+        [Parameter(Mandatory = $false)]
+        [switch]$CopyToClipboard,
+        [Parameter(Mandatory = $false)]
+        [switch]$DoNotShow
+    )
+    # $NumBias = $SpecCharBias = $AllLetBias = $MinLetBias = $MajLetBias = 1
+
+    $FinishedPW = ""
+
+    $CharArr = @()
+    $MajLet = @()
+    $MinLet = @()
+    65..90 | ForEach-Object { $MajLet += [char]$_ }
+    97..122 | ForEach-Object { $MinLet += [char]$_ }
+    $SpecChars = @(".", ",", ";", "'", "\", "/")
+    1..$NumBias | ForEach-Object { $CharArr += @(0..9) }
+    1..$MajLetBias | ForEach-Object { $CharArr += @($MajLet) }
+    1..$MinLetBias | ForEach-Object { $CharArr += @($MinLet) }
+    1..$SpecCharBias | ForEach-Object { $CharArr += @($SpecChars) }
+
+    for ($i = 0; $i -lt $Length; $i++) {
+        $FinishedPW += Get-Random -InputObject (Get-Random -InputObject $CharArr)
+    }
+   
+    if ($CopyToClipboard) {
+        Set-Clipboard -Value $FinishedPW
+    }
+
+    if (!$DoNotShow) {
+        Write-Output $FinishedPW
+    }
+}
+
+function Get-Type {
+    param (
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        $Object,
+        [Parameter(Mandatory = $false)]
+        [switch]$FullName
+    )
+
+    $Type = $Object.Gettype()
+
+    if ($FullName) { return $Type.FullName }
+    return $Type
+}
+
+#endregion
+
+#region PSDrives for Registry
+New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT -ErrorAction SilentlyContinue | Out-Null
+New-PSDrive -Name HKUS -PSProvider Registry -Root HKEY_USERS -ErrorAction SilentlyContinue | Out-Null
+New-PSDrive -Name HKCC -PSProvider Registry -Root HKEY_CURRENT_CONFIG -ErrorAction SilentlyContinue | Out-Null
+
 #endregion
 
 
 #region Aliases
 Set-Alias -Name "nts" New-TimeSpan
+Set-Alias -Name "ntsm" New-TimeSpanSum
+Set-Alias -Name "ntss" New-TimeSpanSum
 Set-Alias -Name "gd" Get-Date
 Set-Alias -Name "ex" explorer.exe
+Set-Alias -Name "gt" Get-Type
+Set-Alias -Name "n" Start-VIM
+Set-Alias -Name "v" Start-VIM
+Set-Alias -Name "m" Measure-Object
+
 
 #endregion
 $CompSpecPath = "$PROFILEDIR\ComputerSpecific.ps1"
 if (Test-Path $CompSpecPath) {
     . $CompSpecPath
 }
+
