@@ -11,7 +11,8 @@ $env:ReplacePathPrompt += ",HKEY_CURRENT_CONFIG|HKCC:"
 
 #region Functions
 function prompt {
-    $LastCommandExecutionState = $? ? "✔ " : "❌"
+    $LastCommandExecutionBool = $?
+    $LastCommandExecutionState = $LastCommandExecutionBool ? "✔ " : "❌"
 
     $MAXFULLPATH = 5
     $Path = (Get-Location).ProviderPath
@@ -83,11 +84,11 @@ function prompt {
     $TerminalWindowWidth = $Host.UI.RawUI.WindowSize.Width
     $LastCommand = Get-History | Select-Object -Last 1
     $LastCommandExecutionTime = $LastCommand.Duration
-    if ($LastCommandExecutionTime.Hours) {
-        $FormattedExecutiontime = "$($LastCommandExecutionTime.Hours)h $($LastCommandExecutionTime.Hours)m"
+    if ($LastCommandExecutionTime.TotalHours) {
+        $FormattedExecutiontime = "$($LastCommandExecutionTime.TotalHours)h $($LastCommandExecutionTime.Minutes)m"
     }
-    elseif ($LastCommandExecutionTime.Minutes) {
-        $FormattedExecutiontime = "$($LastCommandExecutionTime.Minutes)m $($LastCommandExecutionTime.Seconds)s"
+    elseif ($LastCommandExecutionTime.TotalMinutes) {
+        $FormattedExecutiontime = "$($LastCommandExecutionTime.TotalMinutes)m $($LastCommandExecutionTime.Seconds)s"
     }
     else {
         $FormattedExecutiontime = "$([System.Math]::Round($LastCommandExecutionTime.TotalSeconds,3))s"
@@ -95,7 +96,7 @@ function prompt {
     $LastCommandString = $LastCommandExecutionTime.Ticks ? "⏱  $FormattedExecutiontime [ $LastCommandExecutionState ] " : ""
 
 
-    $RightAlignedPosition = New-Object System.Management.Automation.Host.Coordinates ($TerminalWindowWidth - $LastCommandString.Length), $Host.UI.RawUI.CursorPosition.Y
+    $RightAlignedPosition = New-Object System.Management.Automation.Host.Coordinates ($TerminalWindowWidth - $LastCommandString.Length - ([int]!$LastCommandExecutionBool)), $Host.UI.RawUI.CursorPosition.Y
 
     $Host.UI.RawUI.CursorPosition = $RightAlignedPosition
 
@@ -131,6 +132,7 @@ function Get-GitRepoInformation {
 
     $RemoteIndex = [Array]::LastIndexOf($config, "[branch `"$Branch`"]") + 1
     $Remote = $config[$RemoteIndex].Replace("remote =", "").Trim()
+    if ($Remote -like "*vscode-merge-base*") {$Remote = $Remote.Replace("vscode-merge-base =", "").Replace("/","\").Trim()}
     $URLIndex = [Array]::LastIndexOf($config, "[remote `"$Remote`"]") + 1
     $URL = $config[$URLIndex].Replace("url =", "").Trim()
     $RepoName = ($URL -split "\/")[-1] -replace "\.git"
@@ -213,12 +215,19 @@ function touch ([Parameter(Mandatory = $true)]$FileNameOrPath) {
 function Compare-FilesInFolder { 
     param(
         $FirstFolder, 
-        $SecondFolder
+        $SecondFolder,
+	[switch]$QuickCompare
     ) 
-    $FirstHashes = Get-ChildItem -File -Recurse $FirstFolder | ForEach-Object { (Get-FileHash $_).Hash }
-    $SecondHashes = Get-ChildItem -File -Recurse $SecondFolder | ForEach-Object { (Get-FileHash $_).Hash }
-
-    Compare-Object $FirstHashes $SecondHashes
+    $FirstFiles = Get-ChildItem -File -Recurse $FirstFolder 
+    $SecondFiles = Get-ChildItem -File -Recurse $SecondFolder
+    if (!$QuickCompare) {
+	$FirstHashes = $FirstFiles | ForEach-Object { (Get-FileHash $_).Hash }
+    	$SecondHashes = $SecondFiles | ForEach-Object { (Get-FileHash $_).Hash }
+	return (Compare-Object $FirstHashes $SecondHashes)
+    }
+    else {
+	return (Compare-Object $FirstFiles.FullName $SecondFiles.FullName)
+    }
 }
 
 function l { Get-ChildItem @args | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
