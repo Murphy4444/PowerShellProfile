@@ -84,11 +84,14 @@ function prompt {
     $TerminalWindowWidth = $Host.UI.RawUI.WindowSize.Width
     $LastCommand = Get-History | Select-Object -Last 1
     $LastCommandExecutionTime = $LastCommand.Duration
-    if ($LastCommandExecutionTime.TotalHours) {
-        $FormattedExecutiontime = "$($LastCommandExecutionTime.TotalHours)h $($LastCommandExecutionTime.Minutes)m"
+    $LastCommandExecutionTotalHours = [System.Math]::Floor($LastCommandExecutionTime.TotalHours)
+    $LastCommandExecutionMinutes = $LastCommandExecutionTime.Minutes
+    $LastCommandExecutionSeconds = $LastCommandExecutionTime.Seconds
+    if ($LastCommandExecutionTotalHours) {
+        $FormattedExecutiontime = "$($LastCommandExecutionTotalHours)h $($LastCommandExecutionTime.Minutes)m"
     }
-    elseif ($LastCommandExecutionTime.TotalMinutes) {
-        $FormattedExecutiontime = "$($LastCommandExecutionTime.TotalMinutes)m $($LastCommandExecutionTime.Seconds)s"
+    elseif ($LastCommandExecutionMinutes) {
+        $FormattedExecutiontime = "$($LastCommandExecutionMinutes)m $($LastCommandExecutionSeconds)s"
     }
     else {
         $FormattedExecutiontime = "$([System.Math]::Round($LastCommandExecutionTime.TotalSeconds,3))s"
