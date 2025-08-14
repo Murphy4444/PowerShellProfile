@@ -234,16 +234,6 @@ function Compare-FilesInFolder {
     }
 }
 
-function l { Get-ChildItem @args | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
-function ll { Get-ChildItem @args -Force | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
-
-function sudo {
-    try {
-        Start-Process @args -Verb Runas
-    }
-    catch {}
-
-}
 
 function Start-VIM {
     try {
@@ -335,6 +325,23 @@ function Get-Type {
 
 #endregion
 
+#region Linux-Sourced Stuff
+
+function l { Get-ChildItem @args | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
+function ll { Get-ChildItem @args -Force | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
+
+function .. { Set-Location -Path .. }
+
+function sudo {
+    try {
+        Start-Process @args -Verb Runas
+    }
+    catch {}
+
+}
+
+#endregion
+
 #region PSDrives for Registry
 New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT -ErrorAction SilentlyContinue | Out-Null
 New-PSDrive -Name HKUS -PSProvider Registry -Root HKEY_USERS -ErrorAction SilentlyContinue | Out-Null
@@ -353,6 +360,7 @@ Set-Alias -Name "gt" Get-Type
 Set-Alias -Name "n" Start-VIM
 Set-Alias -Name "v" Start-VIM
 Set-Alias -Name "m" Measure-Object
+
 
 
 #endregion
