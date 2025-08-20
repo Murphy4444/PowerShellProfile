@@ -323,6 +323,33 @@ function Get-Type {
     return $Type
 }
 
+
+function Get-FolderSize {
+    param(
+        [Parameter(Mandatory=$true)]
+        [ValidateScript({
+            return ( 
+                if(Test-Path $_ -PathType Container) {
+                    return $true
+                } 
+                throw "Folder $_ not found"
+                )
+        }
+        )]
+        [string]$Path
+    )
+    
+    $SFSO = New-Object -ComObject Scripting.FileSystemObject
+    $FolderSize = $SFSO.GetFolder($Path).Size
+
+    return [PSCustomObject]@{
+        InB = $FolderSize 
+        InKB = $FolderSize / 1KB
+        InMB = $FolderSize / 1MB
+        InGB = $FolderSize / 1GB
+        InTB = $FolderSize / 1TB
+    }
+}
 #endregion
 
 #region Linux-Sourced Stuff
