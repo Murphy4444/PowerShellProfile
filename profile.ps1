@@ -352,6 +352,39 @@ function Get-Type {
     return $Type
 }
 
+function Get-FolderSize {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [ValidateScript({
+            if(Test-Path $_ -PathType Container) {
+                return $true
+            }
+            throw "Folder $_ not found"
+        }
+        )]
+        [string]$Path
+    )
+
+    $SFSO = New-Object -ComObject Scripting.FileSystemObject
+    $Folder = $SFSO.GetFolder($Path)
+    if ($Folder.IsRootFolder) {
+        $SubFolderTotalSize = $Folder.SubFolders | ForEach-Object { $_.Size } | Measure-Object -Sum | Select-Object -ExpandProperty Sum
+        $FilesInFolderTotalSize = $Folder.Files |  ForEach-Object { $_.Size} | Measure-Object -Sum | Select-Object -ExpandProperty Sum
+        $FolderSize = $SubFolderTotalSize + $FilesInFolderTotalSize
+    }
+    else {
+        $FolderSize = $Folder.Size
+    }
+    return [PSCustomObject]@{
+        InB = $FolderSize
+        InKB = $FolderSize / 1KB
+        InMB = $FolderSize / 1MB
+        InGB = $FolderSize / 1GB
+        InTB = $FolderSize / 1TB
+    }
+}
+
 
 #endregion
 
