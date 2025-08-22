@@ -98,6 +98,11 @@ function prompt {
     }
     $LastCommandString = $LastCommandExecutionTime.Ticks ? "⏱  $FormattedExecutiontime [ $LastCommandExecutionState ] " : ""
 
+	$IsCSProjFolder = Test-CSProj
+
+	if($IsCSProjFolder) {
+		$LastCommandString = "[$IsCSProjFolder]    $LastCommandString"
+	}
 
     $RightAlignedPosition = New-Object System.Management.Automation.Host.Coordinates ($TerminalWindowWidth - $LastCommandString.Length - ([int]!$LastCommandExecutionBool)), $Host.UI.RawUI.CursorPosition.Y
 
@@ -155,6 +160,19 @@ function Get-GitRepoInformation {
         Status    = $Status
     }
 }
+
+function Test-CSProj {
+    $Path = (Get-Location).ProviderPath
+	$CSProjFilePath = "*.csproj"
+	$SplitPath = $Path -split "\\" | Where-Object {![String]::IsNullOrEmpty($_)}
+	for($Folder = $SplitPath.Count - 1; $Folder -ge 0 ; $folder-- ) {
+		$CSProjFile = Get-Item $CSProjFilePath
+		if ($CSProjFile) { return $CSProjFile.BaseName }
+		$CSProjFilePath = "..\$CSProjFilePath"
+	}
+
+}
+
 
 function pw {
     param (
@@ -288,14 +306,25 @@ function New-Password {
     $CharArr = @()
     $MajLet = @()
     $MinLet = @()
-    65..90 | ForEach-Object { $MajLet += [char]$_ }
-    97..122 | ForEach-Object { $MinLet += [char]$_ }
-    $SpecChars = @(".", ",", ";", "'", "\", "/")
-    1..$NumBias | ForEach-Object { $CharArr += @(0..9) }
-    1..$MajLetBias | ForEach-Object { $CharArr += @($MajLet) }
-    1..$MinLetBias | ForEach-Object { $CharArr += @($MinLet) }
-    1..$SpecCharBias | ForEach-Object { $CharArr += @($SpecChars) }
+    'A'..'Z' | ForEach-Object { $MajLet += [char]$_ }
+    'a'..'z' | ForEach-Object { $MinLet += [char]$_ }
+    $SpecChars = '"-?[]{}|\/,.<>:@~#;$!%^&*()_-' -split ''
+    
+	1..($Bias | ? {$_ -eq "Numbers"} | Measure | Select -Expand Count) | `
+    	ForEach-Object { $CharArr += @(0..9) }
+    
+	1..($Bias | ? {$_ -eq "MajorLetters"} | Measure | Select -Expand Count) | `
+    	ForEach-Object { $CharArr += @($MajLet) }
+    
+	1..($Bias | ? {$_ -eq "MinorLetters"} | Measure | Select -Expand Count) | ` 
+    	ForEach-Object { $CharArr += @($MinLet) }
 
+	1..($Bias | ? {$_ -eq "AllLetters"} | Measure | Select -Expand Count) | ` 
+    	ForEach-Object { $CharArr += @($MinLet); $CharArr += @($MajLet) }
+
+	1..($Bias | ? {$_ -eq "Special"} | Measure | Select -Expand Count) |  ` 
+    	ForEach-Object { $CharArr += @($SpecChars) }
+	$CharArr
     for ($i = 0; $i -lt $Length; $i++) {
         $FinishedPW += Get-Random -InputObject (Get-Random -InputObject $CharArr)
     }
@@ -322,6 +351,7 @@ function Get-Type {
     if ($FullName) { return $Type.FullName }
     return $Type
 }
+
 
 #endregion
 
@@ -360,7 +390,11 @@ Set-Alias -Name "gt" Get-Type
 Set-Alias -Name "n" Start-VIM
 Set-Alias -Name "v" Start-VIM
 Set-Alias -Name "m" Measure-Object
+Set-Alias -Name "uptime" Get-Uptime # Use uptime -s to get boot time
+Set-Alias -Name "up" Get-Uptime # Use up -s to get boot time
 
+Set-Alias -Name "*" l
+Set-Alias -Name "**" ll
 
 
 #endregion

@@ -1,3 +1,6 @@
 Modules/
 Scripts/
 ComputerSpecific.ps1
+Microsoft.PowerShell_profile.ps1
+powershell.config.json
+
