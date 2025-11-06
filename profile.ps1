@@ -7,6 +7,7 @@ $env:ReplacePathPrompt += ",HKEY_CLASSES_ROOT|HKCR:"
 $env:ReplacePathPrompt += ",HKEY_CURRENT_USER|HKCU:"
 $env:ReplacePathPrompt += ",HKEY_USERS|HKUS:"
 $env:ReplacePathPrompt += ",HKEY_CURRENT_CONFIG|HKCC:"
+$ONLYDRIVEANDFOLDER = $true
 #endregion
 
 #region Functions
@@ -14,7 +15,7 @@ function prompt {
     $LastCommandExecutionBool = $?
     $LastCommandExecutionState = $LastCommandExecutionBool ? "✔ " : "❌"
 
-    $MAXFULLPATH = 5
+    $MAXFULLPATH = 2
     $Path = (Get-Location).ProviderPath
 
     ForEach ($KVP in ($env:ReplacePathPrompt -split ",")) {
@@ -34,8 +35,8 @@ function prompt {
         ""
     }
 
-    $SplitPath = $Path -split "\\" |  Where-Object { $_ -ne "" -and $_ -ne $null }
-    if ($SplitPath.Count -gt $MAXFULLPATH) { 
+    $SplitPath = $Path -split "\\" |  Where-Object { $_ -ne "" -and $_ -ne $null } 
+    if ($SplitPath.Count -gt $MAXFULLPATH -and !$ONLYDRIVEANDFOLDER) { 
         if ($Path -like "\\*") {
             $Share = $true
             $SplitPath = $SplitPath -replace "\\\\", "\\"
@@ -57,6 +58,9 @@ function prompt {
         }
         $PathPrompt += "\"
         $PathPrompt += $SplitPath[(((-1) * $MAXFULLPATH) + 1)..-1] -join "\"
+    }
+    elseif ($SplitPath.Count -gt $MAXFULLPATH -and $ONLYDRIVEANDFOLDER) {
+        $PathPrompt = "$($SplitPath[0])\·\$($SplitPath[-1])"
     }
     else {
         $PathPrompt = $Path
@@ -98,11 +102,6 @@ function prompt {
     }
     $LastCommandString = $LastCommandExecutionTime.Ticks ? "⏱  $FormattedExecutiontime [ $LastCommandExecutionState ] " : ""
 
-	$IsCSProjFolder = Test-CSProj
-
-	if($IsCSProjFolder) {
-		$LastCommandString = "[$IsCSProjFolder]    $LastCommandString"
-	}
 
     $RightAlignedPosition = New-Object System.Management.Automation.Host.Coordinates ($TerminalWindowWidth - $LastCommandString.Length - ([int]!$LastCommandExecutionBool)), $Host.UI.RawUI.CursorPosition.Y
 
@@ -112,7 +111,7 @@ function prompt {
 
     Write-Host -NoNewline $LastCommandString
 
-    Write-Host "`n>" -NoNewLine -ForeGroundColor White
+    Write-Host "`n~>" -NoNewLine -ForeGroundColor White
     
     return " "
 }
@@ -160,19 +159,6 @@ function Get-GitRepoInformation {
         Status    = $Status
     }
 }
-
-function Test-CSProj {
-    $Path = (Get-Location).ProviderPath
-	$CSProjFilePath = "*.csproj"
-	$SplitPath = $Path -split "\\" | Where-Object {![String]::IsNullOrEmpty($_)}
-	for($Folder = $SplitPath.Count - 1; $Folder -ge 0 ; $folder-- ) {
-		$CSProjFile = Get-Item $CSProjFilePath
-		if ($CSProjFile) { return $CSProjFile.BaseName }
-		$CSProjFilePath = "..\$CSProjFilePath"
-	}
-
-}
-
 
 function pw {
     param (
