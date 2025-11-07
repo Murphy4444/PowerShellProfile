@@ -1,5 +1,5 @@
 #region Variables
-$PROFILEDIR = Split-Path $PROFILE -Parent
+$PROFILEDIR = ($PROFILE -split "\\" | Select-Object -SkipLast 1) -join "\"
 $PSPROFILE = "$PROFILEDIR\profile.ps1" ; $PSPROFILE | Out-Null
 $env:ReplacePathPrompt = "$HOME|~"
 $env:ReplacePathPrompt += ",HKEY_LOCAL_MACHINE|HKLM:"
@@ -86,7 +86,7 @@ function prompt {
     }
 
     $TerminalWindowWidth = $Host.UI.RawUI.WindowSize.Width
-    $LastCommand = Get-History | Select-Object -Last 1
+    $LastCommand = Get-History -Count 1
     $LastCommandExecutionTime = $LastCommand.Duration
     $LastCommandExecutionTotalHours = [System.Math]::Floor($LastCommandExecutionTime.TotalHours)
     $LastCommandExecutionMinutes = $LastCommandExecutionTime.Minutes
@@ -122,17 +122,14 @@ function Test-GitFolder {
     $DotGitPath = ".git"
     
     for ($folder = $SplitPath.Count - 1; $folder -ge 0 ; $folder--) {  
-        if (Test-Path $DotGitPath) { return $DotGitPath }
+        if (Test-Path $DotGitPath) { return (Get-GitRepoInformation $DotGitPath) }
         $DotGitPath = "../$DotGitPath"
     }
     return $false
 }
 
-function Get-GitRepoInformation {
-    $GitDirRelPath = Test-GitFolder
-    if (!$GitDirRelPath) {
-        return $false
-    }
+function Get-GitRepoInformation  ($GitDirRelPath) {
+
     $GitDirAbsPath = $GitDirRelPath | Resolve-Path
     $Branch = ((Get-Content "$GitDirRelPath/HEAD") -split "\/")[-1]
     $config = Get-Content "$GitDirRelPath/config"
@@ -145,7 +142,6 @@ function Get-GitRepoInformation {
     $RepoName = ($URL -split "\/")[-1] -replace "\.git"
     if ($config -notcontains "[branch `"$Branch`"]") { $Remote = $null }
 
-    $GitStatus = Invoke-Expression "git status"
     $GitStatus = Invoke-Expression "git status"
 
     $Status = if ($GitStatus -like "*Changes not staged for commit*" -or $GitStatus -contains "*Untracked files:*") { "Red" } else { "Green" }
@@ -296,21 +292,16 @@ function New-Password {
     'a'..'z' | ForEach-Object { $MinLet += [char]$_ }
     $SpecChars = '"-?[]{}|\/,.<>:@~#;$!%^&*()_-' -split ''
     
-	1..($Bias | ? {$_ -eq "Numbers"} | Measure | Select -Expand Count) | `
-    	ForEach-Object { $CharArr += @(0..9) }
+    1..($Bias | Where-Object { $_ -eq "Numbers" } | Measure-Object | Select-Object -Expand Count) | ForEach-Object { $CharArr += @(0..9) }
     
-	1..($Bias | ? {$_ -eq "MajorLetters"} | Measure | Select -Expand Count) | `
-    	ForEach-Object { $CharArr += @($MajLet) }
+    1..($Bias | Where-Object { $_ -eq "MajorLetters" } | Measure-Object | Select-Object -Expand Count) | ForEach-Object { $CharArr += @($MajLet) }
     
-	1..($Bias | ? {$_ -eq "MinorLetters"} | Measure | Select -Expand Count) | ` 
-    	ForEach-Object { $CharArr += @($MinLet) }
+    1..($Bias | Where-Object { $_ -eq "MinorLetters" } | Measure-Object | Select-Object -Expand Count) | ForEach-Object { $CharArr += @($MinLet) }
 
-	1..($Bias | ? {$_ -eq "AllLetters"} | Measure | Select -Expand Count) | ` 
-    	ForEach-Object { $CharArr += @($MinLet); $CharArr += @($MajLet) }
+    1..($Bias | Where-Object { $_ -eq "AllLetters" } | Measure-Object | Select-Object -Expand Count) | ForEach-Object { $CharArr += @($MinLet); $CharArr += @($MajLet) }
 
-	1..($Bias | ? {$_ -eq "Special"} | Measure | Select -Expand Count) |  ` 
-    	ForEach-Object { $CharArr += @($SpecChars) }
-	$CharArr
+    1..($Bias | Where-Object { $_ -eq "Special" } | Measure-Object | Select-Object -Expand Count) | ForEach-Object { $CharArr += @($SpecChars) }
+    # $CharArr
     for ($i = 0; $i -lt $Length; $i++) {
         $FinishedPW += Get-Random -InputObject (Get-Random -InputObject $CharArr)
     }
@@ -341,13 +332,13 @@ function Get-Type {
 function Get-FolderSize {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [ValidateScript({
-            if(Test-Path $_ -PathType Container) {
-                return $true
+                if (Test-Path $_ -PathType Container) {
+                    return $true
+                }
+                throw "Folder $_ not found"
             }
-            throw "Folder $_ not found"
-        }
         )]
         [string]$Path
     )
@@ -356,26 +347,23 @@ function Get-FolderSize {
     $Folder = $SFSO.GetFolder($Path)
     if ($Folder.IsRootFolder) {
         $SubFolderTotalSize = $Folder.SubFolders | ForEach-Object { $_.Size } | Measure-Object -Sum | Select-Object -ExpandProperty Sum
-        $FilesInFolderTotalSize = $Folder.Files |  ForEach-Object { $_.Size} | Measure-Object -Sum | Select-Object -ExpandProperty Sum
+        $FilesInFolderTotalSize = $Folder.Files |  ForEach-Object { $_.Size } | Measure-Object -Sum | Select-Object -ExpandProperty Sum
         $FolderSize = $SubFolderTotalSize + $FilesInFolderTotalSize
     }
     else {
         $FolderSize = $Folder.Size
     }
     return [PSCustomObject]@{
-        InB = $FolderSize
+        InB  = $FolderSize
         InKB = $FolderSize / 1KB
         InMB = $FolderSize / 1MB
         InGB = $FolderSize / 1GB
         InTB = $FolderSize / 1TB
     }
 }
-
-
 #endregion
 
 #region Linux-Sourced Stuff
-
 function l { Get-ChildItem @args | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
 function ll { Get-ChildItem @args -Force | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
 
@@ -388,14 +376,12 @@ function sudo {
     catch {}
 
 }
-
 #endregion
 
 #region PSDrives for Registry
 New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT -ErrorAction SilentlyContinue | Out-Null
 New-PSDrive -Name HKUS -PSProvider Registry -Root HKEY_USERS -ErrorAction SilentlyContinue | Out-Null
 New-PSDrive -Name HKCC -PSProvider Registry -Root HKEY_CURRENT_CONFIG -ErrorAction SilentlyContinue | Out-Null
-
 #endregion
 
 
@@ -414,9 +400,8 @@ Set-Alias -Name "up" Get-Uptime # Use up -s to get boot time
 
 Set-Alias -Name "*" l
 Set-Alias -Name "**" ll
-
-
 #endregion
+
 $CompSpecPath = "$PROFILEDIR\ComputerSpecific.ps1"
 if (Test-Path $CompSpecPath) {
     . $CompSpecPath
