@@ -7,7 +7,8 @@ $env:ReplacePathPrompt += ",HKEY_CLASSES_ROOT|HKCR:"
 $env:ReplacePathPrompt += ",HKEY_CURRENT_USER|HKCU:"
 $env:ReplacePathPrompt += ",HKEY_USERS|HKUS:"
 $env:ReplacePathPrompt += ",HKEY_CURRENT_CONFIG|HKCC:"
-$ONLYDRIVEANDFOLDER = $true
+$ONLYDRIVEANDMAXFOLDER = $true
+$MAXFULLPATH = 2
 #endregion
 
 #region Functions
@@ -15,7 +16,6 @@ function prompt {
     $LastCommandExecutionBool = $?
     $LastCommandExecutionState = $LastCommandExecutionBool ? "✔ " : "❌"
 
-    $MAXFULLPATH = 2
     $Path = (Get-Location).ProviderPath
 
     ForEach ($KVP in ($env:ReplacePathPrompt -split ",")) {
@@ -23,10 +23,9 @@ function prompt {
         $Path = $Path -ireplace [regex]::Escape("$Key"), "$Value"
     }
     
-    $GitFolderTest = Test-GitFolder
+    $GitInformation = Test-GitFolder
 
-    $GitString = if ($GitFolderTest) {
-        $GitInformation = Get-GitRepoInformation
+    $GitString = if ($GitInformation) {
         $Name = ($GitInformation.Name).ToLower()
         if ($null -eq $Remote) { $Remote = "-" }
         " [$Name/$($GitInformation.Branch)]"
@@ -36,7 +35,7 @@ function prompt {
     }
 
     $SplitPath = $Path -split "\\" |  Where-Object { $_ -ne "" -and $_ -ne $null } 
-    if ($SplitPath.Count -gt $MAXFULLPATH -and !$ONLYDRIVEANDFOLDER) { 
+    if ($SplitPath.Count -gt $MAXFULLPATH -and !$ONLYDRIVEANDMAXFOLDER) { 
         if ($Path -like "\\*") {
             $Share = $true
             $SplitPath = $SplitPath -replace "\\\\", "\\"
@@ -59,8 +58,12 @@ function prompt {
         $PathPrompt += "\"
         $PathPrompt += $SplitPath[(((-1) * $MAXFULLPATH) + 1)..-1] -join "\"
     }
-    elseif ($SplitPath.Count -gt $MAXFULLPATH -and $ONLYDRIVEANDFOLDER) {
-        $PathPrompt = "$($SplitPath[0])\·\$($SplitPath[-1])"
+    elseif ($SplitPath.Count -gt $MAXFULLPATH -and $ONLYDRIVEANDMAXFOLDER) {
+        $First = $SplitPath[0]
+        [Array]::Reverse($SplitPath)
+        $PathElementsToShow = $SplitPath[0..($MAXFULLPATH - 1)]
+        [Array]::Reverse($PathElementsToShow)
+        $PathPrompt = "$First\·\$($PathElementsToShow -join "\")"
     }
     else {
         $PathPrompt = $Path
@@ -131,8 +134,8 @@ function Test-GitFolder {
 function Get-GitRepoInformation  ($GitDirRelPath) {
 
     $GitDirAbsPath = $GitDirRelPath | Resolve-Path
-    $Branch = ((Get-Content "$GitDirRelPath/HEAD") -split "\/")[-1]
-    $config = Get-Content "$GitDirRelPath/config"
+    $Branch = ((Get-Content "$GitDirAbsPath/HEAD") -split "\/")[-1]
+    $config = Get-Content "$GitDirAbsPath/config"
 
     $RemoteIndex = [Array]::LastIndexOf($config, "[branch `"$Branch`"]") + 1
     $Remote = $config[$RemoteIndex].Replace("remote =", "").Trim()
