@@ -371,6 +371,7 @@ function l { Get-ChildItem @args | Sort-Object -Descending PSISContainer, @{Expr
 function ll { Get-ChildItem @args -Force | Sort-Object -Descending PSISContainer, @{Expression = 'Name'; Descending = $false } }
 
 function .. { Set-Location -Path .. }
+function ~ { Set-Location -Path ~ }
 
 function sudo {
     try {
