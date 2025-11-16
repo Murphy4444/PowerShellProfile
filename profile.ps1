@@ -372,6 +372,7 @@ function ll { Get-ChildItem @args -Force | Sort-Object -Descending PSISContainer
 
 function .. { Set-Location -Path .. }
 function ~ { Set-Location -Path ~ }
+function \ { Set-Location -Path \ }
 
 function sudo {
     try {
@@ -404,6 +405,7 @@ Set-Alias -Name "up" Get-Uptime # Use up -s to get boot time
 
 Set-Alias -Name "*" l
 Set-Alias -Name "**" ll
+Set-Alias -Name "/" \
 #endregion
 
 $CompSpecPath = "$PROFILEDIR\ComputerSpecific.ps1"
