@@ -11,6 +11,31 @@ $ONLYDRIVEANDMAXFOLDER = $true
 $MAXFULLPATH = 2
 #endregion
 
+#region Scriptblocks
+$ShortcutArgumentCompleter = {
+    param(
+        [string] $CommandName,
+        [string] $ParameterName,
+        [string] $WordToComplete,
+        [System.Management.Automation.Language.CommandAst] $CommandAst,
+        [System.Collections.IDictionary] $FakeBoundParameters
+    )
+    $QuotedResults = (Get-ChildItem "$WordToComplete*.lnk") | ForEach-Object {
+        # Set quotes if necessary
+        $RelPath = Resolve-Path $_ -Relative
+        $QuotedName = $RelPath -match "\s" ? "'$RelPath'" : $RelPath
+        [System.Management.Automation.CompletionResult]::new(
+            $QuotedName,
+            $_.Name,
+            'ParameterValue',
+            $_.FullName
+        )
+    }
+    return $QuotedResults
+}
+
+#endregion
+
 #region Functions
 function prompt {
     $LastCommandExecutionBool = $?
@@ -201,6 +226,30 @@ function cdl {
     Get-ChildItem -Force
 }
 
+function Resolve-Shortcut {
+    param (
+        [Parameter(Mandatory, Position=0)]
+        [string]$Path
+    )
+
+    $Resolved = Resolve-Path -LiteralPath $Path -ErrorAction Stop
+
+    $Shell = New-Object -COMObject WScript.Shell
+    $Shortcut = $Shell.CreateShortCut($Resolved.Path)
+
+    return $Shortcut.TargetPath
+}
+
+function Set-LocationToShortcut {
+    param (
+        [Parameter(Mandatory, Position=0)]
+        [string]$Path
+    )
+    Set-Location (Resolve-Shortcut $Path)
+}
+
+Register-ArgumentCompleter -CommandName Set-LocationToShortcut -ParameterName Path -ScriptBlock $ShortcutArgumentCompleter
+Register-ArgumentCompleter -CommandName Resolve-Shortcut -ParameterName Path -ScriptBlock $ShortcutArgumentCompleter
 
 function init {
     param (
@@ -402,6 +451,8 @@ Set-Alias -Name "v" Start-VIM
 Set-Alias -Name "m" Measure-Object
 Set-Alias -Name "uptime" Get-Uptime # Use uptime -s to get boot time
 Set-Alias -Name "up" Get-Uptime # Use up -s to get boot time
+Set-Alias -Name "cds" Set-LocationToShortcut
+Set-Alias -Name "rs" Resolve-Shortcut
 
 Set-Alias -Name "*" l
 Set-Alias -Name "**" ll
