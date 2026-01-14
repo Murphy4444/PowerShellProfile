@@ -2,11 +2,11 @@
 $PROFILEDIR = ($PROFILE -split "\\" | Select-Object -SkipLast 1) -join "\"
 $PSPROFILE = "$PROFILEDIR\profile.ps1" ; $PSPROFILE | Out-Null
 $env:ReplacePathPrompt = "$HOME|~"
-$env:ReplacePathPrompt += ",HKEY_LOCAL_MACHINE|HKLM:"
-$env:ReplacePathPrompt += ",HKEY_CLASSES_ROOT|HKCR:"
-$env:ReplacePathPrompt += ",HKEY_CURRENT_USER|HKCU:"
-$env:ReplacePathPrompt += ",HKEY_USERS|HKUS:"
-$env:ReplacePathPrompt += ",HKEY_CURRENT_CONFIG|HKCC:"
+$env:ReplacePathPrompt += ",HKEY_LOCAL_MACHINE|⚙️"
+$env:ReplacePathPrompt += ",HKEY_CLASSES_ROOT|🫚"
+$env:ReplacePathPrompt += ",HKEY_CURRENT_USER|👤"
+$env:ReplacePathPrompt += ",HKEY_USERS|👥"
+$env:ReplacePathPrompt += ",HKEY_CURRENT_CONFIG|🔧"
 $ONLYDRIVEANDMAXFOLDER = $true
 $MAXFULLPATH = 2
 #endregion
@@ -39,9 +39,9 @@ $ShortcutArgumentCompleter = {
 #region Functions
 function prompt {
     $LastCommandExecutionBool = $?
-    $LastCommandExecutionState = $LastCommandExecutionBool ? "✔ " : "❌"
+    $LastCommandExecutionState = $LastCommandExecutionBool ? "✔️" : "❌"
 
-    $Path = (Get-Location).ProviderPath
+    $Path = (Get-Location).ProviderPath.TrimEnd("\/")
 
     ForEach ($KVP in ($env:ReplacePathPrompt -split ",")) {
         $Key, $Value = $KVP -split "\|"
@@ -228,7 +228,7 @@ function cdl {
 
 function Resolve-Shortcut {
     param (
-        [Parameter(Mandatory, Position=0)]
+        [Parameter(Mandatory, Position = 0)]
         [string]$Path
     )
 
@@ -242,7 +242,7 @@ function Resolve-Shortcut {
 
 function Set-LocationToShortcut {
     param (
-        [Parameter(Mandatory, Position=0)]
+        [Parameter(Mandatory, Position = 0)]
         [string]$Path
     )
     Set-Location (Resolve-Shortcut $Path)
