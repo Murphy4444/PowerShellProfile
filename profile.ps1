@@ -413,6 +413,21 @@ function Get-FolderSize {
         InTB = $FolderSize / 1TB
     }
 }
+
+function Start-StoreApp {
+    param (
+        [Parameter(Mandatory)]
+        $AppName
+    )
+    try {
+        Start-Process "shell:AppsFolder\$((Get-StartApps $AppName | Select-Object -First 1).AppId)"
+    }
+    catch {
+        Write-Host "App $AppName not found or could not be started..."
+    }
+}
+
+
 #endregion
 
 #region Linux-Sourced Stuff
